@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import List
 from datetime import datetime
+from mangum import Mangum
 
 app = FastAPI()
 
@@ -26,17 +27,16 @@ async def get_sensor_data(device_id: str):
     if not results:
         raise HTTPException(status_code=404, detail="No data found for device")
     return results
-# PUT - Update sensor data (latest entry only)
+
 @app.put("/sensor_data/{device_id}")
 def update_sensor_data(device_id: str, updated_data: SensorData):
-    for i in range(len(sensor_db)-1, -1, -1):  # search from end (latest first)
+    for i in range(len(sensor_db)-1, -1, -1):
         if sensor_db[i].device_id == device_id:
             updated_data.timestamp = datetime.utcnow()
             sensor_db[i] = updated_data
             return {"message": "Sensor data updated", "data": updated_data}
     raise HTTPException(status_code=404, detail="Device not found")
 
-# DELETE - Delete sensor data by device_id
 @app.delete("/sensor_data/{device_id}")
 def delete_sensor_data(device_id: str):
     global sensor_db
@@ -45,3 +45,6 @@ def delete_sensor_data(device_id: str):
         raise HTTPException(status_code=404, detail="Device not found")
     sensor_db = new_db
     return {"message": f"Data for {device_id} deleted"}
+
+# Wrap the app with a handler for serverless
+handler = Mangum(app)
